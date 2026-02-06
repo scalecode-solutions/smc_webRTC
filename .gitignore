@@ -6,3 +6,5 @@ xcuserdata/
 *.xcuserstate
 DerivedData/
 .DS_Store
+build/webrtc_build/
+build/output/
