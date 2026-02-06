@@ -55,7 +55,7 @@ gclient sync
 # Step 4: Build for iOS device (arm64)
 echo ""
 echo "[4/7] Building for iOS device (arm64)..."
-GN_ARGS='target_os="ios" target_cpu="arm64" is_debug=false is_component_build=false rtc_include_tests=false rtc_libvpx_build_vp9=true enable_dsyms=true enable_stripping=true ios_enable_code_signing=false symbol_level=1'
+GN_ARGS='target_os="ios" target_cpu="arm64" target_environment="device" is_debug=false is_component_build=false rtc_include_tests=false rtc_libvpx_build_vp9=true enable_dsyms=true enable_stripping=true ios_enable_code_signing=false symbol_level=1'
 
 gn gen out/ios_arm64 --args="$GN_ARGS"
 ninja -C out/ios_arm64 framework_objc
