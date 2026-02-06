@@ -1,3 +1,8 @@
 WebRTC.xcframework.zip
-WebRTC.xcframework.zip
 WebRTC.xcframework/
+.swiftpm/
+.build/
+xcuserdata/
+*.xcuserstate
+DerivedData/
+.DS_Store
