@@ -3,7 +3,7 @@ set -e
 
 # =============================================================================
 # smc_webRTC Build Script
-# Builds Google WebRTC M141 xcframework for iOS + macOS
+# Builds Google WebRTC M147 xcframework for iOS + macOS
 # Slices: iOS device arm64, iOS simulator arm64+x86_64, macOS arm64+x86_64
 # Produces WebRTC.xcframework with dSYMs
 # =============================================================================
@@ -12,12 +12,12 @@ SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 PACKAGE_DIR="$(dirname "$SCRIPT_DIR")"
 BUILD_DIR="$SCRIPT_DIR/webrtc_build"
 OUTPUT_DIR="$SCRIPT_DIR/output"
-BRANCH="branch-heads/7390"  # M141
+BRANCH="branch-heads/7727"  # M147
 DEPOT_TOOLS_DIR="$BUILD_DIR/depot_tools"
 
 echo "============================================"
 echo "  smc_webRTC Build Script"
-echo "  Branch: $BRANCH (M141)"
+echo "  Branch: $BRANCH (M147)"
 echo "  iOS:   arm64 device, arm64+x86_64 sim"
 echo "  macOS: arm64+x86_64"
 echo "============================================"
@@ -47,7 +47,7 @@ else
     gclient sync
 fi
 
-# Step 3: Checkout M141 branch
+# Step 3: Checkout M147 branch
 echo ""
 echo "[3/10] Checking out $BRANCH..."
 cd "$BUILD_DIR/webrtc/src"
@@ -132,11 +132,17 @@ echo "  Creating fat macOS framework..."
 rm -rf out/mac_fat
 mkdir -p out/mac_fat
 cp -R out/mac_arm64/WebRTC.framework out/mac_fat/WebRTC.framework
+# macOS frameworks use a Versions/A layout — the real binary lives at
+# Versions/A/WebRTC and the top-level is expected to be a symlink. On M147 the
+# ninja output ships the top-level as a regular file, so we must write the fat
+# binary into Versions/A and restore the symlink at the top.
 lipo -create \
-    out/mac_arm64/WebRTC.framework/WebRTC \
-    out/mac_x64/WebRTC.framework/WebRTC \
-    -output out/mac_fat/WebRTC.framework/WebRTC
-echo "  macOS fat binary archs: $(lipo -archs out/mac_fat/WebRTC.framework/WebRTC)"
+    out/mac_arm64/WebRTC.framework/Versions/A/WebRTC \
+    out/mac_x64/WebRTC.framework/Versions/A/WebRTC \
+    -output out/mac_fat/WebRTC.framework/Versions/A/WebRTC
+rm -f out/mac_fat/WebRTC.framework/WebRTC
+ln -s Versions/Current/WebRTC out/mac_fat/WebRTC.framework/WebRTC
+echo "  macOS fat binary archs: $(lipo -archs out/mac_fat/WebRTC.framework/Versions/A/WebRTC)"
 
 # Create fat macOS dSYM
 if [ -d "out/mac_arm64/WebRTC.dSYM" ] && [ -d "out/mac_x64/WebRTC.dSYM" ]; then
@@ -206,7 +212,7 @@ echo "  To update Package.swift, use this checksum."
 echo "  To publish:"
 echo "    cd $PACKAGE_DIR"
 echo "    # Update checksum in Package.swift"
-echo "    # gh release create <version> $OUTPUT_DIR/WebRTC.xcframework.zip --repo scalecode-solutions/smc_webRTC"
+echo "    # gh release create 147.2.0 $OUTPUT_DIR/WebRTC.xcframework.zip --repo scalecode-solutions/smc_webRTC"
 echo ""
 
 # Also copy to package root for local dev
