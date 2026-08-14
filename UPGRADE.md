@@ -1,90 +1,73 @@
-# smc_webRTC — next-bump runbook (target: M151)
+# smc_webRTC — milestone upgrade runbook
 
-**Status:** parked deliberately, 2026-08-14. Verification is DONE; only the
-build remains. Current build (M147) is fine — this bump is optional freshness,
-not a fix.
+**Current build: M152** — `branch-heads/7977` @ `6f37672d358475cd17544121a12494da454d85fb`,
+built 2026-08-14 with Xcode 26.6 on Apple Silicon (M5). Tag `152.2.0`.
+Next bump: whenever — run the 5-minute surface check below first.
 
-## Where things stand
+## API-surface verification ledger
 
-| Thing | Value |
-|---|---|
-| Shipping build | **M147** — `branch-heads/7727` @ `d09f0670e96e`, tag `147.2.0`, Xcode 26.4.1 |
-| Next target | **M151** — `branch-heads/7922` (soaked stable; shipped a full stable run) |
-| Skipped | M148, M149, M150 (M150 was the July plan target; the train moved) |
-| Deferred | **M152** — `branch-heads/7977`, went stable ~2026-08-11; wait for the round after |
-| Consumer | Clingy via SPM binary target (`Package.swift` URL + SHA256 pin) |
-
-## API-surface verification — COMPLETE for M147 → M151
-
-Our surface: `RTCAudioSession` (manual-audio mode), `RTCCameraVideoCapturer`,
-`RTCMTLVideoView`, `RTCPeerConnection`(+Factory, delegates),
-`RTCRtpSender`/parameters, `setCodecPreferences`.
+Consumer surface (Clingy's WebRTCClient): `RTCAudioSession` (manual-audio mode),
+`RTCCameraVideoCapturer`, `RTCMTLVideoView`, `RTCPeerConnection`(+Factory,
+delegates), `RTCRtpSender`/parameters, `setCodecPreferences`.
 
 | Window | Method | Verdict |
 |---|---|---|
-| `7727..7871` (M147→M150) | gitiles commit log, themed (2026-07-31) | clean on our surface |
-| `7871..7922` (M150→M151) | **full-tree diff of `sdk/objc`** (2026-08-14) | clean — trivially |
+| `7727..7871` (M147→M150) | gitiles commit log, themed (2026-07-31) | clean |
+| `7871..7922` (M150→M151) | full-tree `sdk/objc` archive diff (2026-08-14) | clean — 3 files, all internal |
+| `7922..7977` (M151→M152) | full-tree `sdk/objc` archive diff (2026-08-14) | clean — `copy`-attr cleanup on readonly props + additive `RTCCertificate.getFingerprints`/`RTCDtlsFingerprint`; our files untouched |
 
-The entire M150→M151 `sdk/objc` diff is **3 files, 34 lines, all internal**:
-`RTCRtpHeaderExtension.mm` (`.id` → `.id.value()`, upstream optional-ization),
-`RTCRtpHeaderExtensionCapability.mm` (native conversion rewritten to a C++
-constructor), `objc_video_track_source.h` (an internal `#include` path moved).
-Zero public-header changes; the other 373 files are byte-identical. The
-`setCodecPreferences` nullability wart is unchanged — keep the `error: ()`
-workaround.
+The `setCodecPreferences` nullability wart persists through M152 — keep the
+`error: ()` workaround.
 
-Caveat: this verifies the **ObjC SDK contract only**. The C++ underneath (media
-engine, ICE, AEC3, security fixes) is the point of bumping — behavioral
-verification is the live-call gate below.
+### The 5-minute surface check (do this before any bump)
 
-### How to verify the next window (M151→M152) in ~5 minutes
-
-Gitiles `+log` pages are now **sign-in-gated** (403 since ~Aug 2026), but the
-archive endpoint is open. Full-tree diff beats commit theming anyway:
+Gitiles `+log` pages are **sign-in-gated** (403 since ~Aug 2026); the archive
+endpoint is open and a full-tree diff beats commit theming anyway:
 
 ```bash
-for v in 7922 7977; do
+for v in OLD NEW; do
   curl -s "https://webrtc.googlesource.com/src/+archive/refs/branch-heads/$v/sdk/objc.tar.gz" -o objc_$v.tar.gz
   mkdir objc_$v && tar -xzf objc_$v.tar.gz -C objc_$v
 done
-diff -ru objc_7922 objc_7977        # read every hunk; check the surface list above
+diff -ru objc_OLD objc_NEW     # read every hunk; check the surface list above
 ```
 
-Current milestone ↔ branch map (verify fresh via
-`https://chromiumdash.appspot.com/fetch_milestones?only_branched=true` and
-`fetch_releases?channel=Stable&platform=Mac&num=1`):
+Milestone ↔ branch map (refresh via
+`https://chromiumdash.appspot.com/fetch_milestones?only_branched=true`, current
+stable via `fetch_releases?channel=Stable&platform=Mac&num=1`):
 M147=7727 · M148=7778 · M149=7827 · M150=7871 · M151=7922 · M152=7977.
 
-## The build (when ready)
+## The build
 
-1. `build/build_webrtc.sh`: set `BRANCH="branch-heads/7922"` and update the
-   M147 comment strings. One line of real change.
-2. Run it. Plan for the full ~15-20GB fetch (`build/webrtc_build/` is not on
-   disk). Five GN/ninja builds → header fix → lipo → xcframework → zip.
-3. **Tripwires** (the M147 lesson class): the script echoes
-   `iOS sim fat binary archs:` and `macOS fat binary archs:` — both MUST print
-   two archs. M147's ninja output silently shipped the mac framework's
-   top-level binary as a regular file instead of the `Versions/A` symlink,
-   which made `-create-xcframework` drop x86_64 from the mac slice; the script
-   now handles that one (`build_webrtc.sh` step 9), but a new milestone can
-   drift somewhere new. Read the final slice list.
-4. Record the pinned upstream commit in the bump commit message
-   (M147 precedent: `d09f0670e96e`).
-5. `Package.swift`: new release URL + printed SHA256 →
-   `gh release create 151.2.0 output/WebRTC.xcframework.zip --repo scalecode-solutions/smc_webRTC`
-   → git tag `151.2.0`.
-6. Bump Clingy's pin (Package.resolved; requirement is exact-ish via URL swap —
-   commit the resolve).
-7. **Acceptance gate: live calls, testical ↔ tmarq27** — audio, video,
-   mid-call video toggle, minimize/expand, speaker toggle, a backgrounding
-   round-trip. The unit suite exercises `FakeWebRTCClient`, not the binary;
-   only live calls test the framework.
-8. Ship in its own TestFlight release — never bundled with UI changes, so a
-   field regression points at exactly one layer.
+1. `build/build_webrtc.sh`: set `BRANCH="branch-heads/NNNN"` + comment strings.
+2. Run it. With a warm `build/webrtc_build/` the sync is minutes; cold fetch is
+   ~22GB (took ~10 min on fiber). The five ninja builds took ~20 min total on
+   an M5 — the whole M152 build was ~35 minutes end to end.
+3. **Tripwires:** the `iOS sim fat binary archs:` and `macOS fat binary archs:`
+   echoes must BOTH print two archs, and `remaining broken: 0` on all five
+   header fixes. Verify the mac slice directly:
+   `lipo -archs .../macos-arm64_x86_64/WebRTC.framework/Versions/A/WebRTC`
+   and that the top-level `WebRTC` is a symlink (the M147 lesson).
+4. Record the pinned upstream commit
+   (`git -C build/webrtc_build/webrtc/src log -1`) in the bump commit.
+5. Update `Package.swift` (release URL + printed SHA256), README badge +
+   version table, this file's header. Commit, push, then:
+   `gh release create NNN.2.0 build/output/WebRTC.xcframework.zip --repo scalecode-solutions/smc_webRTC`
+   (tag rides the release).
+6. Consumer bump (Clingy) is a SEPARATE decision: update the pin, then the
+   acceptance gate is **live calls** (audio, video, mid-call video toggle,
+   minimize/expand, speaker, backgrounding round-trip) — the unit suite fakes
+   WebRTC; only live calls test the binary. Ship in its own TestFlight release.
 
-## Why M151 over M152 (decided 2026-08-14)
+## Sync failures seen in the wild (M152 build, 2026-08-14)
 
-M152 went stable days before this was written — still collecting respins.
-M151 finished a full stable run: soaked, boring, ideal for a vendored build
-that only gets bumped a couple times a year. M152 (or later) next round, with
-its own 5-minute archive diff first.
+- **`FileNotFoundError ... _DeleteOrMove ... third_party/<dep>/src`** during
+  `fetch`/`gclient sync`: a dep's DEPS layout migrated (e.g. `pthreadpool` →
+  `pthreadpool/src`) and the relocation of the old checkout died partway,
+  leaving a `_bad_scm/` quarantine dir. Fix: delete the half-moved dep dir AND
+  `_bad_scm/`, then **`git checkout -- .` inside `src/third_party`** to restore
+  any tracked files the deletion took with it (gclient refuses to sync over
+  tracked deletions: "You have uncommitted changes"). Re-run; gclient
+  fresh-clones the dep at its new path.
+- Untracked `??` entries under `src/third_party` (boringssl/src, catapult, …)
+  are normal — nested dep checkouts, not dirt.

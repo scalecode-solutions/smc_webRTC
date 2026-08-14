@@ -3,7 +3,7 @@ set -e
 
 # =============================================================================
 # smc_webRTC Build Script
-# Builds Google WebRTC M147 xcframework for iOS + macOS
+# Builds Google WebRTC M152 xcframework for iOS + macOS
 # Slices: iOS device arm64, iOS simulator arm64+x86_64, macOS arm64+x86_64
 # Produces WebRTC.xcframework with dSYMs
 # =============================================================================
@@ -12,12 +12,12 @@ SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 PACKAGE_DIR="$(dirname "$SCRIPT_DIR")"
 BUILD_DIR="$SCRIPT_DIR/webrtc_build"
 OUTPUT_DIR="$SCRIPT_DIR/output"
-BRANCH="branch-heads/7727"  # M147
+BRANCH="branch-heads/7977"  # M152
 DEPOT_TOOLS_DIR="$BUILD_DIR/depot_tools"
 
 echo "============================================"
 echo "  smc_webRTC Build Script"
-echo "  Branch: $BRANCH (M147)"
+echo "  Branch: $BRANCH (M152)"
 echo "  iOS:   arm64 device, arm64+x86_64 sim"
 echo "  macOS: arm64+x86_64"
 echo "============================================"
@@ -47,7 +47,7 @@ else
     gclient sync
 fi
 
-# Step 3: Checkout M147 branch
+# Step 3: Checkout M152 branch
 echo ""
 echo "[3/10] Checking out $BRANCH..."
 cd "$BUILD_DIR/webrtc/src"
@@ -212,7 +212,7 @@ echo "  To update Package.swift, use this checksum."
 echo "  To publish:"
 echo "    cd $PACKAGE_DIR"
 echo "    # Update checksum in Package.swift"
-echo "    # gh release create 147.2.0 $OUTPUT_DIR/WebRTC.xcframework.zip --repo scalecode-solutions/smc_webRTC"
+echo "    # gh release create 152.2.0 $OUTPUT_DIR/WebRTC.xcframework.zip --repo scalecode-solutions/smc_webRTC"
 echo ""
 
 # Also copy to package root for local dev

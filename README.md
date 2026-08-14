@@ -2,7 +2,7 @@
 
 **From-source Google WebRTC builds for iOS and macOS, shipped as a Swift Package binary target.**
 
-![WebRTC](https://img.shields.io/badge/WebRTC-M147-blue)
+![WebRTC](https://img.shields.io/badge/WebRTC-M152-blue)
 ![Platforms](https://img.shields.io/badge/platforms-iOS%2018%2B%20%7C%20macOS%2015%2B-lightgrey)
 ![SPM](https://img.shields.io/badge/SPM-binary%20target-orange)
 ![License](https://img.shields.io/badge/license-BSD--3--Clause-green)
@@ -52,7 +52,8 @@ Version numbers track WebRTC milestones: `147.x.y` = **M147**.
 
 | Tag | WebRTC | Upstream branch | Built with | Notes |
 |---|---|---|---|---|
-| `147.2.0` | M147 | `branch-heads/7727` @ `d09f0670e96e` | Xcode 26.4.1 | current; macOS fat-framework layout fix |
+| `152.2.0` | M152 | `branch-heads/7977` @ `6f37672d3584` | Xcode 26.6 | current |
+| `147.2.0` | M147 | `branch-heads/7727` @ `d09f0670e96e` | Xcode 26.4.1 | macOS fat-framework layout fix |
 | `141.2.0` | M141 | `branch-heads/7390` | Xcode 26.2 | symbol export, x86_64 sim, macOS slices |
 | `141.1.0` | M141 | `branch-heads/7390` | Xcode 26.2 | dSYMs added |
 | `141.0.0` | M141 | `branch-heads/7390` | Xcode 26.2 | first from-source build |
