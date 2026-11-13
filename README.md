@@ -2,7 +2,7 @@
 
 **From-source Google WebRTC builds for iOS and macOS, shipped as a Swift Package binary target.**
 
-![WebRTC](https://img.shields.io/badge/WebRTC-M152-blue)
+![WebRTC](https://img.shields.io/badge/WebRTC-M158-blue)
 ![Platforms](https://img.shields.io/badge/platforms-iOS%2018%2B%20%7C%20macOS%2015%2B-lightgrey)
 ![SPM](https://img.shields.io/badge/SPM-binary%20target-orange)
 ![License](https://img.shields.io/badge/license-BSD--3--Clause-green)
@@ -38,7 +38,7 @@ One `WebRTC.xcframework`, built by [`build/build_webrtc.sh`](build/build_webrtc.
 
 ```swift
 dependencies: [
-    .package(url: "https://github.com/scalecode-solutions/smc_webRTC", from: "147.2.0")
+    .package(url: "https://github.com/scalecode-solutions/smc_webRTC", from: "158.2.0")
 ]
 ```
 
@@ -52,9 +52,10 @@ Version numbers track WebRTC milestones: `147.x.y` = **M147**.
 
 | Tag | WebRTC | Upstream branch | Built with | Notes |
 |---|---|---|---|---|
-| `152.2.0` | M152 | `branch-heads/7977` @ `6f37672d3584` | Xcode 26.6 | current |
-| `147.2.0` | M147 | `branch-heads/7727` @ `d09f0670e96e` | Xcode 26.4.1 | macOS fat-framework layout fix |
-| `141.2.0` | M141 | `branch-heads/7390` | Xcode 26.2 | symbol export, x86_64 sim, macOS slices |
+| `158.2.0` | M158 | `branch-heads/8127` @ `fb1c41a93d92` | Xcode 27.2 | current; **macOS headers fix** (first release whose mac slice imports) |
+| `152.2.0` | M152 | `branch-heads/7977` @ `6f37672d3584` | Xcode 26.6 | macOS slice unusable (headers missing) |
+| `147.2.0` | M147 | `branch-heads/7727` @ `d09f0670e96e` | Xcode 26.4.1 | macOS fat-framework layout fix; macOS slice unusable (headers missing) |
+| `141.2.0` | M141 | `branch-heads/7390` | Xcode 26.2 | symbol export, x86_64 sim, macOS slices; macOS slice unusable (headers missing) |
 | `141.1.0` | M141 | `branch-heads/7390` | Xcode 26.2 | dSYMs added |
 | `141.0.0` | M141 | `branch-heads/7390` | Xcode 26.2 | first from-source build |
 
@@ -71,7 +72,7 @@ slice), fixes the headers, `lipo`s the fat simulator and macOS binaries
 (including fat dSYMs), assembles the xcframework, zips it, and prints the
 SHA256 for `Package.swift`.
 
-Two hard-won details the script handles for you:
+Three hard-won details the script handles for you:
 
 - **Header imports:** the ninja output ships headers with source-tree-relative
   imports (`#import "sdk/objc/base/RTCMacros.h"`); the script rewrites them to
@@ -82,6 +83,17 @@ Two hard-won details the script handles for you:
   binary and **drop x86_64 from the mac slice**. The script lipos into
   `Versions/A/` and restores the symlink. (Check the `fat binary archs:` lines
   in the output — they should always print two archs.)
+- **macOS public headers:** the mac bundle step ships *only* the umbrella
+  `WebRTC.h` in `Headers/`; the 86 public headers it imports are generated into
+  `out/mac_*/gen/sdk/WebRTC.framework/Headers/` and never copied in, so
+  `import WebRTC` fails on macOS ("could not build Objective-C module"). Every
+  mac slice before `158.2.0` (`141.2.0`, `147.2.0`, `152.2.0`) shipped like that. The script copies
+  the headers in and then checks every slice: any header the umbrella imports
+  but the framework lacks fails the build (`Umbrella check … missing 0`).
+
+`PACKAGE_ONLY=1 ./build/build_webrtc.sh` reruns only steps 9–10 (header fixes,
+fat binaries, xcframework, zip) against an existing `out/`, which takes
+minutes instead of a full sync and five ninja builds.
 
 ## Updating to a new milestone
 

@@ -16,8 +16,8 @@ let package = Package(
     targets: [
         .binaryTarget(
             name: "WebRTC",
-            url: "https://github.com/scalecode-solutions/smc_webRTC/releases/download/152.2.0/WebRTC.xcframework.zip",
-            checksum: "c097f7ae8da2bf76b128fd936d0be8219f869383931e32cf7aec2d9d869f5e35"
+            url: "https://github.com/scalecode-solutions/smc_webRTC/releases/download/158.2.0/WebRTC.xcframework.zip",
+            checksum: "50b72979561c142ef026ab95f92e5635a4d3cbad38e1a108f19e11329c71b1b2"
         ),
     ]
 )

@@ -3,7 +3,7 @@ set -e
 
 # =============================================================================
 # smc_webRTC Build Script
-# Builds Google WebRTC M152 xcframework for iOS + macOS
+# Builds Google WebRTC M158 xcframework for iOS + macOS
 # Slices: iOS device arm64, iOS simulator arm64+x86_64, macOS arm64+x86_64
 # Produces WebRTC.xcframework with dSYMs
 # =============================================================================
@@ -12,16 +12,24 @@ SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 PACKAGE_DIR="$(dirname "$SCRIPT_DIR")"
 BUILD_DIR="$SCRIPT_DIR/webrtc_build"
 OUTPUT_DIR="$SCRIPT_DIR/output"
-BRANCH="branch-heads/7977"  # M152
+BRANCH="branch-heads/8127"  # M158
 DEPOT_TOOLS_DIR="$BUILD_DIR/depot_tools"
 
 echo "============================================"
 echo "  smc_webRTC Build Script"
-echo "  Branch: $BRANCH (M152)"
+echo "  Branch: $BRANCH (M158)"
 echo "  iOS:   arm64 device, arm64+x86_64 sim"
 echo "  macOS: arm64+x86_64"
 echo "============================================"
 echo ""
+
+# PACKAGE_ONLY=1 skips steps 1-8 (sync + ninja) and re-runs only the
+# packaging (header fixes, fat binaries, xcframework, zip) on the existing out/.
+if [ "${PACKAGE_ONLY:-0}" = "1" ]; then
+echo "PACKAGE_ONLY=1: skipping sync and builds, repackaging existing out/"
+export PATH="$DEPOT_TOOLS_DIR:$PATH"
+cd "$BUILD_DIR/webrtc/src"
+else
 
 # Step 1: Get depot_tools
 echo "[1/10] Getting depot_tools..."
@@ -47,7 +55,7 @@ else
     gclient sync
 fi
 
-# Step 3: Checkout M152 branch
+# Step 3: Checkout M158 branch
 echo ""
 echo "[3/10] Checking out $BRANCH..."
 cd "$BUILD_DIR/webrtc/src"
@@ -87,6 +95,8 @@ echo "[8/10] Building for macOS (x86_64)..."
 gn gen out/mac_x64 --args="target_os=\"mac\" target_cpu=\"x64\" $COMMON_ARGS"
 ninja -C out/mac_x64 mac_framework_objc
 
+fi  # PACKAGE_ONLY
+
 # Step 9: Fix headers + create fat binaries
 echo ""
 echo "[9/10] Fixing headers and creating fat binaries..."
@@ -99,12 +109,37 @@ fix_headers() {
     echo "  Fixed headers in $(basename $(dirname $framework_path))/WebRTC.framework (remaining broken: $count)"
 }
 
+# The mac bundle step ships only the umbrella header (WebRTC.h) in
+# Versions/A/Headers; the public headers it imports are generated into
+# gen/sdk/WebRTC.framework/Headers but never copied in (true since at least
+# M147; found during the M158 bump). Copy them in so the mac slice imports.
+for mac in mac_arm64 mac_x64; do
+    dest="out/$mac/WebRTC.framework/Versions/A/Headers"
+    for h in out/$mac/gen/sdk/WebRTC.framework/Headers/*.h; do
+        # WebRTC.h in the bundle is the same file (hard link) as the generated one.
+        [ "$h" -ef "$dest/$(basename "$h")" ] || cp -f "$h" "$dest/"
+    done
+done
+
+# Tripwire: every header the umbrella imports must exist in every framework.
+check_umbrella() {
+    local headers="$1/Headers" missing=0
+    for h in $(grep -oE 'WebRTC/[A-Za-z0-9+_]+\.h' "$headers/WebRTC.h" | sed 's#WebRTC/##'); do
+        [ -f "$headers/$h" ] || { echo "    MISSING: $h"; missing=$((missing+1)); }
+    done
+    echo "  Umbrella check $(basename $(dirname $1))/WebRTC.framework: $(ls "$headers" | wc -l | tr -d ' ') headers, missing $missing"
+    [ "$missing" -eq 0 ] || { echo "ERROR: umbrella imports missing headers"; exit 1; }
+}
+
 # Fix headers for all 5 builds
 fix_headers "out/ios_arm64/WebRTC.framework"
 fix_headers "out/ios_sim_arm64/WebRTC.framework"
 fix_headers "out/ios_sim_x64/WebRTC.framework"
 fix_headers "out/mac_arm64/WebRTC.framework"
 fix_headers "out/mac_x64/WebRTC.framework"
+for fw in ios_arm64 ios_sim_arm64 ios_sim_x64 mac_arm64 mac_x64; do
+    check_umbrella "out/$fw/WebRTC.framework"
+done
 
 # Create fat iOS simulator framework (arm64 + x86_64)
 echo "  Creating fat iOS simulator framework..."
@@ -212,7 +247,7 @@ echo "  To update Package.swift, use this checksum."
 echo "  To publish:"
 echo "    cd $PACKAGE_DIR"
 echo "    # Update checksum in Package.swift"
-echo "    # gh release create 152.2.0 $OUTPUT_DIR/WebRTC.xcframework.zip --repo scalecode-solutions/smc_webRTC"
+echo "    # gh release create 158.2.0 $OUTPUT_DIR/WebRTC.xcframework.zip --repo scalecode-solutions/smc_webRTC"
 echo ""
 
 # Also copy to package root for local dev
